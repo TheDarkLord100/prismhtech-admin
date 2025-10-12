@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 
 export default function EditProductPage() {
-  const [image, setImage] = useState("/Assets/aluminium-scrap.jpg"); // default image
+  const [image, setImage] = useState<string | null>(null); // initially no image
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -93,15 +93,20 @@ export default function EditProductPage() {
 
           {/* Image Upload */}
           <div className="flex items-center space-x-4 pt-3">
-            <div className="w-42 h-34 rounded-md overflow-hidden border border-gray-300">
-              <Image
-                src={image}
-                alt="Product"
-                width={100}
-                height={100}
-                className="object-cover w-full h-full"
-              />
+            <div className="w-42 h-38 rounded-xl overflow-hidden border border-gray-300 flex items-center justify-center bg-white">
+              {image ? (
+                <Image
+                  src={image}
+                  alt="Product"
+                  width={120}
+                  height={120}
+                  className="object-cover w-full h-full"
+                />
+              ) : (
+                <span className="text-6xl text-gray-400 font-light">+</span>
+              )}
             </div>
+
             <label className="cursor-pointer bg-gray-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition">
               Change image
               <input
