@@ -5,11 +5,12 @@ import { authoriseAdmin } from "../../utils/authorise";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // ✅ Permission Check
     await authoriseAdmin(req, ["manage_admins"]);
+    const { id } = await params;
 
     const { name, password, role_id } = await req.json();
 
@@ -33,7 +34,7 @@ export async function PUT(
     const { error } = await supabaseServer
       .from("admin_users")
       .update(updateData)
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -51,18 +52,18 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // ✅ Permission Check
     const admin = await authoriseAdmin(req, ["manage_admins"]);
     const supabaseServer = createAdminSupabaseClient();
-    
+    const { id } = await params;
     // ✅ Fetch target admin
     const { data: target, error: fetchError } = await supabaseServer
       .from("admin_users")
       .select("id, role_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (fetchError || !target) {
@@ -92,7 +93,7 @@ export async function DELETE(
     const { error } = await supabaseServer
       .from("admin_users")
       .delete()
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

@@ -4,10 +4,11 @@ import { createAdminSupabaseClient } from "@/utils/supabase/adminClient";
 
 export async function PUT(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         await authoriseAdmin(req, ["manage_brands"]);
+        const { id } = await params;
 
         const supabaseServer = createAdminSupabaseClient();
 
@@ -16,7 +17,7 @@ export async function PUT(
         const { error } = await supabaseServer
             .from("Brands")
             .update({ name, logo_url })
-            .eq("id", params.id);
+            .eq("id", id);
 
         if (error) {
             return NextResponse.json({ error: error.message }, { status: 500 });
@@ -33,16 +34,16 @@ export async function PUT(
 
 export async function DELETE(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         await authoriseAdmin(req, ["manage_brands"]);
         const supabaseServer = createAdminSupabaseClient();
-
+        const { id } = await params;
         const { error } = await supabaseServer
             .from("Brands")
             .delete()
-            .eq("id", params.id);
+            .eq("id", id);
         if (error) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
