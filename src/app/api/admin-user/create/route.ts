@@ -6,7 +6,7 @@ import { authoriseAdmin } from "../../utils/authorise";
 
 export async function POST(req: Request) {
     try {
-        await authoriseAdmin(req, "manage_admins");
+        await authoriseAdmin(req, ["manage_admins"]);
 
         const supabase = createAdminSupabaseClient();
 

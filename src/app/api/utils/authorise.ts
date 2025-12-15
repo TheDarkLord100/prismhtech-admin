@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import { getPermissionsForRole } from "./permissions";
 
-export async function authoriseAdmin(req: Request, permission: string) {
+
+export async function authoriseAdmin(req: Request, permissions: string[]) {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No Authorization header provided");
@@ -16,9 +17,10 @@ export async function authoriseAdmin(req: Request, permission: string) {
       throw new Error("Not an admin user");
     }
 
-    const permissions = await getPermissionsForRole(admin.role_id, token);
-
-    if (!permissions.has(permission)) {
+    const permissionList = await getPermissionsForRole(admin.role_id, token);
+    
+    const hasPermission = permissions.some((p) => permissionList.has(p));
+    if (!hasPermission) {
       throw new Error("Insufficient permissions");
     }
 

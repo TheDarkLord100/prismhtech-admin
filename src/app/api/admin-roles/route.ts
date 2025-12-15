@@ -5,7 +5,7 @@ import { createAdminSupabaseClient } from "@/utils/supabase/adminClient";
 export async function GET(req: Request) {
     try {
         // ✅ Only admins with manage_admins can fetch roles
-        await authoriseAdmin(req, "manage_admins");
+        await authoriseAdmin(req, ["manage_admins"]);
         const supabaseServer = createAdminSupabaseClient();
         const { data, error } = await supabaseServer
             .from("admin_roles")

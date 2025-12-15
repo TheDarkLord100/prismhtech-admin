@@ -5,7 +5,7 @@ import { createAdminSupabaseClient } from "@/utils/supabase/adminClient";
 export async function GET(req: Request) {
   try {
     // Check JWT & permissions
-    const admin = await authoriseAdmin(req, "manage_admins");
+    const admin = await authoriseAdmin(req, ["manage_admins"]);
 
     // Only SuperAdmin allowed
     if (admin.role_id !== 1) {

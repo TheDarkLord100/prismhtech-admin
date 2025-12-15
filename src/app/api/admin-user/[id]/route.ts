@@ -9,7 +9,7 @@ export async function PUT(
 ) {
   try {
     // ✅ Permission Check
-    await authoriseAdmin(req, "manage_admins");
+    await authoriseAdmin(req, ["manage_admins"]);
 
     const { name, password, role_id } = await req.json();
 
@@ -55,7 +55,7 @@ export async function DELETE(
 ) {
   try {
     // ✅ Permission Check
-    const admin = await authoriseAdmin(req, "manage_admins");
+    const admin = await authoriseAdmin(req, ["manage_admins"]);
     const supabaseServer = createAdminSupabaseClient();
     
     // ✅ Fetch target admin

@@ -7,9 +7,11 @@ import { useUserStore } from "@/utils/store/userStore";
 
 const menu = [
   { name: "Dashboard", href: "/" },
-  { name: "Users", href: "/admin/users" },
-  { name: "Products", href: "/admin/products" },
-  { name: "Orders", href: "/admin/orders" },
+  { name: "Users", href: "/users" },
+  { name: "Products", href: "/products" },
+  { name: "Product Categories", href: "/product-categories" },
+  { name: "Orders", href: "/orders" },
+  { name: "Brands", href: "/brands" },
 ];
 
 const superAdminMenu = [
