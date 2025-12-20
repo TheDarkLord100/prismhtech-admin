@@ -16,7 +16,6 @@ export async function GET(req: Request) {
       .select(`
         id,
         name,
-        total_quantity,
         Brands (
           name
         ),
@@ -42,7 +41,6 @@ export async function GET(req: Request) {
       name: p.name,
       brand: p.Brands?.name ?? "-",
       category: p.ProductCategories?.name ?? "-",
-      total_quantity: p.total_quantity ?? 0,
       variant_count: p.ProductVariants?.length ?? 0,
     }));
 
@@ -77,7 +75,6 @@ export async function POST(req: Request) {
         description,
         brand_id,
         product_category_id,
-        total_quantity: 0,
       })
       .select()
       .single();

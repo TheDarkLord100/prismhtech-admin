@@ -55,21 +55,32 @@ export async function POST(req: Request) {
             process.env.JWT_SECRET!
         );
 
-        const { data: rolePermissions, error: permError } = await supabase
+        // 1️⃣ Fetch role -> permission mapping
+        const { data: rolePerms, error: rolePermError } = await supabase
             .from("role_permissions")
-            .select("permission_id, permissions(name)")
+            .select("permission_id")
             .eq("role_id", user.role_id);
 
-        if (permError) {
-            throw permError;
+        if (rolePermError) {
+            throw rolePermError;
         }
-        const permissionList = [
-            ...new Set(
-                rolePermissions
-                    ?.map((rp: any) => rp.permissions?.name)
-                    .filter(Boolean)
-            )
-        ];
+        let permissionList: string[] = [];
+
+        if (rolePerms && rolePerms.length > 0) {
+            const permissionIds = rolePerms.map((rp) => rp.permission_id);
+
+            // 2️⃣ Fetch permission names
+            const { data: permissions, error: permError } = await supabase
+                .from("permissions")
+                .select("name")
+                .in("id", permissionIds);
+
+            if (permError) {
+                throw permError;
+            }
+
+            permissionList = permissions.map((p) => p.name);
+        }
 
         const userData = {
             id: user.id,
