@@ -10,8 +10,9 @@ const menu = [
   { name: "Users", href: "/users" },
   { name: "Products", href: "/products" },
   { name: "Product Categories", href: "/product-categories" },
-  { name: "Orders", href: "/orders" },
   { name: "Brands", href: "/brands" },
+  { name: "Orders", href: "/orders" },
+  { name: "Payments", href: "/payments" },
 ];
 
 const superAdminMenu = [
