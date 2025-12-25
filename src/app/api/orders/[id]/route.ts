@@ -13,7 +13,7 @@ const VALID_STATUSES = [
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await authoriseAdmin(req, ["manage_orders"]);
@@ -27,7 +27,7 @@ export async function PATCH(
     }
 
     const supabase = createAdminSupabaseClient();
-    const orderId = params.id;
+    const { id: orderId } = await params;
 
     // 1️⃣ Fetch order + current status
     const { data: order } = await supabase
@@ -199,8 +199,8 @@ export async function GET(
     const formattedItems =
       items?.map((i) => ({
         id: i.id,
-        product_name: i.products?.name || "—",
-        variant_name: i.variants?.name || "—",
+        product_name: i.products?.[0]?.name || "—",
+        variant_name: i.variants?.[0]?.name || "—",
         quantity: i.quantity,
         price: i.price,
       })) || [];

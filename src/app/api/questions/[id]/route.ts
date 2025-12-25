@@ -4,13 +4,13 @@ import { authoriseAdmin } from "@/app/api/utils/authorise";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await authoriseAdmin(req, ["manage_admins"]);
 
     const supabase = createAdminSupabaseClient();
-
+    const { id } = await params;
     const { data, error } = await supabase
       .from("questions")
       .select(`
@@ -24,7 +24,7 @@ export async function GET(
         question_likes(count),
         answers(body)
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error) throw error;

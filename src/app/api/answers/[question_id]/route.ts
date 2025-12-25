@@ -4,12 +4,12 @@ import { authoriseAdmin } from "@/app/api/utils/authorise";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { question_id: string } }
+  { params }: { params: Promise<{ question_id: string }> }
 ) {
   try {
     await authoriseAdmin(req, ["manage_questions"]);
     const supabase = createAdminSupabaseClient();
-
+    const { question_id } = await params;
     const { body } = await req.json();
 
     if (!body) {
@@ -22,7 +22,7 @@ export async function PUT(
     const { error } = await supabase
       .from("answers")
       .update({ body })
-      .eq("question_id", params.question_id);
+      .eq("question_id", question_id);
 
     if (error) throw error;
 
