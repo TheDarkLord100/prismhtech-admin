@@ -28,7 +28,8 @@ interface PaymentRow {
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  switch (status) {
+  const s = status?.toLowerCase();
+  switch (s) {
     case "success":
       return <Badge className="bg-green-600">Success</Badge>;
     case "pending":

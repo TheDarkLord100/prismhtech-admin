@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { authoriseAdmin } from "../../utils/authorise";
 import { createAdminSupabaseClient } from "@/utils/supabase/adminClient";
+import { sendOrderStatusEmail } from "@/utils/email/sendEmail";
 
 const VALID_STATUSES = [
   "Order placed",
   "Order accepted",
-  "Packed",
   "Shipped",
   "Delivered",
   "Cancelled",
@@ -17,7 +17,12 @@ export async function PATCH(
 ) {
   try {
     const admin = await authoriseAdmin(req, ["manage_orders"]);
-    const { new_status, description } = await req.json();
+    const formData = await req.formData();
+
+    const new_status = formData.get("new_status") as string;
+    const description = formData.get("description") as string | null;
+    const notifyCustomer = formData.get("notify_customer") === "true";
+    const pdfFile = formData.get("invoice_pdf") as File | null;
 
     if (!VALID_STATUSES.includes(new_status)) {
       return NextResponse.json(
@@ -29,7 +34,7 @@ export async function PATCH(
     const supabase = createAdminSupabaseClient();
     const { id: orderId } = await params;
 
-    // 1️⃣ Fetch order + current status
+    /* ---------------- ORDER ---------------- */
     const { data: order } = await supabase
       .from("Orders")
       .select("status")
@@ -42,64 +47,39 @@ export async function PATCH(
 
     const oldStatus = order.status;
 
-    // 2️⃣ Inventory deduction ONLY ON placed → accepted
-    if (
-      oldStatus === "Order placed" &&
-      new_status === "Order accepted"
-    ) {
-      // Fetch order items
-      const { data: items, error: itemsError } = await supabase
+    /* ---------------- INVENTORY LOGIC ---------------- */
+    if (oldStatus === "Order placed" && new_status === "Order accepted") {
+      const { data: items } = await supabase
         .from("OrderItems")
         .select("variant_id, quantity")
         .eq("ordr_id", orderId);
 
-      if (itemsError) {
-        return NextResponse.json(
-          { error: "Failed to fetch order items" },
-          { status: 500 }
-        );
-      }
+      for (const item of items ?? []) {
+        const { error } = await supabase.rpc("decrement_quantity", {
+          pvr_id: item.variant_id,
+          qty: item.quantity,
+        });
 
-      // Deduct inventory per variant
-      for (const item of items) {
-        const { error: stockError } = await supabase
-          .from("ProductVariants")
-          .update({
-            quantity: supabase.rpc("decrement_quantity", {
-              pvr_id: item.variant_id,
-              qty: item.quantity,
-            }),
-          });
-
-        if (stockError) {
+        if (error) {
           return NextResponse.json(
-            { error: "Insufficient inventory for one or more items" },
+            { error: "Insufficient inventory" },
             { status: 400 }
           );
         }
       }
     }
 
-    // 3️⃣ Insert status history
-    const { error: historyError } = await supabase
-      .from("OrderStatusHistory")
-      .insert({
-        order_id: orderId,
-        old_status: oldStatus,
-        new_status,
-        changed_by: admin.id,
-        note: description || null,
-      });
+    /* ---------------- STATUS HISTORY ---------------- */
+    await supabase.from("OrderStatusHistory").insert({
+      order_id: orderId,
+      old_status: oldStatus,
+      new_status,
+      changed_by: admin.id,
+      note: description || null,
+    });
 
-    if (historyError) {
-      return NextResponse.json(
-        { error: historyError.message },
-        { status: 500 }
-      );
-    }
-
-    // 4️⃣ Update order
-    const { error: updateError } = await supabase
+    /* ---------------- UPDATE ORDER ---------------- */
+    await supabase
       .from("Orders")
       .update({
         status: new_status,
@@ -107,14 +87,57 @@ export async function PATCH(
       })
       .eq("id", orderId);
 
-    if (updateError) {
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 500 }
-      );
+    /* ---------------- EMAIL ---------------- */
+    if (notifyCustomer) {
+      let attachment;
+
+      if (pdfFile) {
+        if (pdfFile.size > 5 * 1024 * 1024) {
+          return NextResponse.json(
+            { error: "PDF too large (max 5MB)" },
+            { status: 400 }
+          );
+        }
+
+        const buffer = Buffer.from(await pdfFile.arrayBuffer());
+        attachment = {
+          filename: pdfFile.name || "attachment.pdf",
+          content: buffer.toString("base64"),
+        };
+      }
+
+      await sendOrderStatusEmail({
+        orderId,
+        status: new_status,
+        note: description,
+        attachment,
+      });
     }
 
-    return NextResponse.json({ success: true });
+    /* ---------------- FETCH UPDATED ORDER ---------------- */
+    const { data: updatedOrder } = await supabase
+      .from("Orders")
+      .select(`
+    id,
+    status,
+    status_description
+  `)
+      .eq("id", orderId)
+      .single();
+
+    /* ---------------- FETCH UPDATED HISTORY ---------------- */
+    const { data: updatedHistory } = await supabase
+      .from("OrderStatusHistory")
+      .select("*")
+      .eq("order_id", orderId)
+      .order("changed_at", { ascending: true });
+
+    return NextResponse.json({
+      success: true,
+      order: updatedOrder,
+      history: updatedHistory || [],
+    });
+
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Failed to update order status" },
@@ -122,6 +145,7 @@ export async function PATCH(
     );
   }
 }
+
 
 export async function GET(
   req: Request,
@@ -139,9 +163,17 @@ export async function GET(
       .select(`
         id,
         created_at,
+        user_id,
+        subtotal_amount,
+        gst_rate,
+        gst_type,
+        cgst_amount,
+        sgst_amount,
+        igst_amount,
         total_amount,
         payment_type,
         status,
+        status_description,
         shipping_address_id,
         billing_address_id
       `)
@@ -154,6 +186,23 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    /* ---------------- USER ---------------- */
+    console.log("Fetching user for order:", order.user_id);
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select(`
+        id,
+        name,
+        email,
+        phone,
+        gstin
+      `)
+      .eq("id", order.user_id)
+      .single();
+
+    console.log("Fetched user:", user);
+    console.log("User fetch error:", userError);
 
     /* ---------------- ADDRESSES ---------------- */
     const { data: addresses } = await supabase
@@ -178,11 +227,14 @@ export async function GET(
         id,
         quantity,
         price,
-        products:products (
+        product:products (
+          id,
           name
         ),
-        variants:ProductVariants (
-          name
+        variant:ProductVariants (
+          pvr_id,
+          name,
+          price
         )
       `)
       .eq("ordr_id", orderId);
@@ -194,31 +246,21 @@ export async function GET(
       );
     }
 
-    console.log(items);
-
-    const formattedItems =
-      items?.map((i) => ({
-        id: i.id,
-        product_name: i.products?.[0]?.name || "—",
-        variant_name: i.variants?.[0]?.name || "—",
-        quantity: i.quantity,
-        price: i.price,
-      })) || [];
-      
     /* ---------------- STATUS HISTORY ---------------- */
     const { data: history } = await supabase
       .from("OrderStatusHistory")
       .select("*")
       .eq("order_id", orderId)
       .order("changed_at", { ascending: true });
-      console.log(history);
+
     /* ---------------- RESPONSE ---------------- */
     return NextResponse.json({
       order: {
         ...order,
+        user,
         shipping_address,
         billing_address,
-        items: formattedItems,
+        items: items || [],
         history: history || [],
       },
     });

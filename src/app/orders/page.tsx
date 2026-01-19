@@ -15,6 +15,17 @@ interface OrderRow {
   items_count: number;
 }
 
+const STATUS_STYLES: Record<string, string> = {
+  CREATED: "bg-gray-100 text-gray-700",
+  "Order placed": "bg-blue-100 text-blue-700",
+  "Order accepted": "bg-indigo-100 text-indigo-700",
+  Packed: "bg-yellow-100 text-yellow-800",
+  Shipped: "bg-orange-100 text-orange-800",
+  Delivered: "bg-green-100 text-green-700",
+  Cancelled: "bg-red-100 text-red-700",
+};
+
+
 export default function OrdersPage() {
   const token = useUserStore((s) => s.token);
   const router = useRouter();
@@ -61,10 +72,12 @@ export default function OrdersPage() {
                 <th className="p-3 text-left">Order Time</th>
                 <th className="p-3 text-left">Items</th>
                 <th className="p-3 text-left">Total</th>
+                <th className="p-3 text-left">Payment</th>
                 <th className="p-3 text-left">Status</th>
                 <th className="p-3 text-left">Actions</th>
               </tr>
             </thead>
+
 
             <tbody>
               {loading && (
@@ -85,7 +98,12 @@ export default function OrdersPage() {
 
               {orders.map((o) => (
                 <tr key={o.id} className="border-t hover:bg-gray-50">
-                  <td className="p-3 text-sm text-gray-600">{o.id}</td>
+                  <td className="p-3 text-sm text-gray-600">
+                    <span title={o.id} className="cursor-help">
+                      {o.id.slice(0, 8)}…
+                    </span>
+                  </td>
+
 
                   <td className="p-3">
                     {new Date(o.created_at).toLocaleString()}
@@ -94,13 +112,21 @@ export default function OrdersPage() {
                   <td className="p-3">{o.items_count}</td>
 
                   <td className="p-3">₹{o.total_amount}</td>
-
                   <td className="p-3">
-                    <span className="px-2 py-1 rounded bg-gray-100 text-sm">
+                    {o.status !== "CREATED" ? (
+                      <span className="text-green-700 font-medium">Paid</span>
+                    ) : (
+                      <span className="text-red-600 font-medium">Pending</span>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-1 rounded text-sm font-medium ${STATUS_STYLES[o.status] ?? "bg-gray-100 text-gray-700"
+                        }`}
+                    >
                       {o.status}
                     </span>
                   </td>
-
                   <td className="p-3">
                     <Button
                       size="sm"

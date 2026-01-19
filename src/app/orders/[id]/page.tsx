@@ -18,9 +18,8 @@ import { useUserStore } from "@/utils/store/userStore";
 import { notify, Notification } from "@/utils/notify";
 
 const ORDER_STATUSES = [
-    "Order placed",
+    "Order Placed",
     "Order accepted",
-    "Packed",
     "Shipped",
     "Delivered",
     "Cancelled",
@@ -35,6 +34,10 @@ export default function OrderDetailsPage() {
     const [newStatus, setNewStatus] = useState("");
     const [statusNote, setStatusNote] = useState("");
     const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
+    const [sendMail, setSendMail] = useState(true);
+    const [attachPdf, setAttachPdf] = useState(false);
+    const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+
 
     useEffect(() => {
         if (!token) return;
@@ -60,16 +63,22 @@ export default function OrderDetailsPage() {
     }, [token, id]);
 
     async function updateStatus() {
+        const formData = new FormData();
+
+        formData.append("new_status", newStatus);
+        formData.append("description", statusNote);
+        formData.append("notify_customer", String(sendMail));
+
+        if (invoiceFile) {
+            formData.append("invoice_pdf", invoiceFile);
+        }
+
         const res = await fetch(`/api/orders/${id}`, {
             method: "PATCH",
             headers: {
-                "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({
-                new_status: newStatus,
-                description: statusNote,
-            }),
+            body: formData,
         });
 
         const data = await res.json();
@@ -81,14 +90,16 @@ export default function OrderDetailsPage() {
 
         notify(Notification.SUCCESS, "Order status updated");
 
-        // reload order
-        const refreshed = await fetch(`/api/orders/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-        }).then((r) => r.json());
+        setOrder((prev: any) => ({
+            ...prev,
+            status: data.order.status,
+            status_description: data.order.status_description,
+            history: data.history,
+        }));
 
-        setOrder(refreshed.order);
         setStatusNote("");
     }
+
 
     const isStatusDisabled = (status: string) => {
         const statusIndex = ORDER_STATUSES.indexOf(status);
@@ -160,6 +171,34 @@ export default function OrderDetailsPage() {
                     </div>
                 </Card>
 
+                {/* User Details */}
+                <Card className="p-4 bg-white text-black">
+                    <h2 className="font-semibold mb-3">Customer Details</h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <span className="font-medium text-gray-600">Name</span>
+                            <p>{order.user?.name ?? "—"}</p>
+                        </div>
+
+                        <div>
+                            <span className="font-medium text-gray-600">Email</span>
+                            <p className="break-all">{order.user?.email ?? "—"}</p>
+                        </div>
+
+                        <div>
+                            <span className="font-medium text-gray-600">Phone</span>
+                            <p>{order.user?.phone ?? "—"}</p>
+                        </div>
+
+                        <div>
+                            <span className="font-medium text-gray-600">GST Number</span>
+                            <p>{order.user?.gstin ?? "Not provided"}</p>
+                        </div>
+                    </div>
+                </Card>
+
+
                 {/* Addresses */}
                 <div className="grid md:grid-cols-2 gap-6">
                     {[shipping_address, billing_address].map((addr: any, idx: number) => (
@@ -197,16 +236,70 @@ export default function OrderDetailsPage() {
                         <tbody>
                             {order.items.map((i: any) => (
                                 <tr key={i.id} className="border-t">
-                                    <td className="p-2">{i.product_name}</td>
-                                    <td className="p-2">{i.variant_name}</td>
+                                    <td className="p-2 font-medium">
+                                        {i.product?.name ?? "—"}
+                                    </td>
+
+                                    <td className="p-2 text-gray-700">
+                                        {i.variant?.name ?? "—"}
+                                    </td>
+
                                     <td className="p-2">{i.quantity}</td>
+
                                     <td className="p-2">₹{i.price}</td>
-                                    <td className="p-2">₹{i.price * i.quantity}</td>
+
+                                    <td className="p-2 font-medium">
+                                        ₹{i.price * i.quantity}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </Card>
+
+                {/* GST Breakdown */}
+                <Card className="p-4 bg-white text-black">
+                    <h2 className="font-semibold mb-4">GST & Pricing</h2>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <span className="font-medium text-gray-600">Subtotal</span>
+                            <p>₹{order.subtotal_amount}</p>
+                        </div>
+
+                        <div>
+                            <span className="font-medium text-gray-600">GST Type</span>
+                            <p>{order.gst_type}</p>
+                        </div>
+
+                        {order.gst_type === "CGST_SGST" ? (
+                            <>
+                                <div>
+                                    <span className="font-medium text-gray-600">CGST (9%)</span>
+                                    <p>₹{order.cgst_amount}</p>
+                                </div>
+
+                                <div>
+                                    <span className="font-medium text-gray-600">SGST (9%)</span>
+                                    <p>₹{order.sgst_amount}</p>
+                                </div>
+                            </>
+                        ) : (
+                            <div>
+                                <span className="font-medium text-gray-600">IGST (18%)</span>
+                                <p>₹{order.igst_amount}</p>
+                            </div>
+                        )}
+
+                        <div className="col-span-2 md:col-span-4 border-t pt-3 mt-2">
+                            <span className="font-semibold text-lg">Total Paid</span>
+                            <p className="text-xl font-bold text-green-700">
+                                ₹{order.total_amount}
+                            </p>
+                        </div>
+                    </div>
+                </Card>
+
 
                 {/* Update Status */}
                 <Card className="p-4 bg-white text-black">
@@ -237,6 +330,50 @@ export default function OrderDetailsPage() {
                             value={statusNote}
                             onChange={(e) => setStatusNote(e.target.value)}
                         />
+                        <div className="flex flex-col gap-2 text-sm">
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={sendMail}
+                                    onChange={(e) => setSendMail(e.target.checked)}
+                                />
+                                Send status update email to customer
+                            </label>
+
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={attachPdf}
+                                    onChange={(e) => setAttachPdf(e.target.checked)}
+                                    disabled={!sendMail}
+                                />
+                                Attach PDF (invoice / document)
+                            </label>
+                        </div>
+
+                        <div className="flex flex-col gap-2 text-sm">
+                            <label className="font-medium">Attach PDF (optional)</label>
+
+                            <Input
+                                type="file"
+                                accept="application/pdf"
+                                disabled={!sendMail}
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file && file.type !== "application/pdf") {
+                                        notify(Notification.FAILURE, "Only PDF files allowed");
+                                        return;
+                                    }
+                                    setInvoiceFile(file ?? null);
+                                }}
+                            />
+
+                            {invoiceFile && (
+                                <p className="text-xs text-gray-600">
+                                    Selected: {invoiceFile.name}
+                                </p>
+                            )}
+                        </div>
 
                         <Button
                             className="bg-[#4CAF50] text-white"
