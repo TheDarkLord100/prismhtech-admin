@@ -35,13 +35,15 @@ const menu: MenuItem[] = [
 
   { name: "Questions", href: "/questions", permission: "manage_questions" },
 
-  // Admin management (restricted)
   { name: "Admin Users", href: "/admin-users", permission: "manage_admins" },
   {
     name: "Roles and Permissions",
     href: "/roles",
     permission: "manage_admins",
   },
+  {
+    name: "Live Prices", href: "/live-prices"
+  }
 ];
 
 /**
