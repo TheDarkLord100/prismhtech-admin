@@ -16,7 +16,12 @@ interface MediaPickerDialogProps {
   bucket: string;
   open: boolean;
   onClose: () => void;
-  onSelect: (url: string) => void;
+
+  // single select (existing usage)
+  onSelect?: (url: string) => void;
+
+  // multi select (bulk usage)
+  onSelectMultiple?: (urls: string[]) => void;
 }
 
 export default function MediaPickerDialog({
@@ -24,23 +29,30 @@ export default function MediaPickerDialog({
   open,
   onClose,
   onSelect,
+  onSelectMultiple,
 }: MediaPickerDialogProps) {
   const token = useUserStore((s) => s.token);
 
   const [files, setFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
 
-  // staged upload state
+  // always array (single select uses first element)
+  const [selected, setSelected] = useState<string[]>([]);
+
+  // upload staging
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [pendingFileName, setPendingFileName] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const [search, setSearch] = useState("");
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isMultiSelect = !!onSelectMultiple;
+
+  // --------------------------------
+  // Helpers
+  // --------------------------------
   function getFileName(url: string) {
     return url.split("/").pop()?.toLowerCase() || "";
   }
@@ -49,6 +61,9 @@ export default function MediaPickerDialog({
     getFileName(url).includes(search.toLowerCase())
   );
 
+  // --------------------------------
+  // Load media
+  // --------------------------------
   async function loadFiles() {
     if (!token) return;
 
@@ -66,23 +81,24 @@ export default function MediaPickerDialog({
       return;
     }
 
-    setFiles(data.files);
+    setFiles(data.files || []);
     setLoading(false);
   }
 
   useEffect(() => {
     if (open) {
       loadFiles();
-      setSelected(null);
+      setSelected([]);
       setSearch("");
       clearPending();
     }
   }, [open]);
 
+  // --------------------------------
+  // Upload helpers
+  // --------------------------------
   function clearPending() {
-    if (pendingPreview) {
-      URL.revokeObjectURL(pendingPreview);
-    }
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
     setPendingFile(null);
     setPendingPreview(null);
     setPendingFileName("");
@@ -103,9 +119,7 @@ export default function MediaPickerDialog({
 
     const res = await fetch("/api/media", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
       body: formData,
     });
 
@@ -118,19 +132,47 @@ export default function MediaPickerDialog({
     }
 
     setFiles((prev) => [data.url, ...prev]);
-    setSelected(data.url);
+    setSelected([data.url]);
     clearPending();
     setUploading(false);
   }
 
+  // --------------------------------
+  // Selection
+  // --------------------------------
+  function toggleSelect(url: string) {
+    if (isMultiSelect) {
+      setSelected((prev) =>
+        prev.includes(url)
+          ? prev.filter((u) => u !== url)
+          : [...prev, url]
+      );
+    } else {
+      setSelected([url]);
+    }
+  }
+
+  function confirmSelection() {
+    if (isMultiSelect && onSelectMultiple) {
+      onSelectMultiple(selected);
+    } else if (onSelect) {
+      onSelect(selected[0]);
+    }
+    onClose();
+  }
+
+  // --------------------------------
+  // Render
+  // --------------------------------
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl">
+      {/* IMPORTANT: flex layout fixes the narrow-column bug */}
+      <DialogContent className="max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Select Media</DialogTitle>
         </DialogHeader>
 
-        {/* Top controls */}
+        {/* ================= TOP CONTROLS ================= */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <Input
             placeholder="Search by file name"
@@ -145,19 +187,14 @@ export default function MediaPickerDialog({
             Upload Image
           </Button>
 
-          {selected && (
-            <Button
-              onClick={() => {
-                onSelect(selected);
-                onClose();
-              }}
-            >
-              Select
+          {selected.length > 0 && (
+            <Button onClick={confirmSelection}>
+              Select {selected.length}
             </Button>
           )}
         </div>
 
-        {/* Hidden file input */}
+        {/* ================= FILE INPUT ================= */}
         <input
           ref={fileInputRef}
           type="file"
@@ -174,13 +211,13 @@ export default function MediaPickerDialog({
           }}
         />
 
-        {/* Pending upload preview */}
+        {/* ================= PENDING UPLOAD ================= */}
         {pendingFile && (
-          <div className="flex gap-4 items-center border rounded-lg p-4 mb-6 bg-gray-50">
+          <div className="flex gap-4 items-center border rounded-lg p-4 mb-4 bg-gray-50">
             <img
               src={pendingPreview!}
               alt="preview"
-              className="h-24 w-24 object-contain border rounded"
+              className="h-32 w-32 object-contain border rounded"
             />
 
             <div className="flex-1 space-y-2">
@@ -191,17 +228,11 @@ export default function MediaPickerDialog({
               />
 
               <div className="flex gap-2">
-                <Button
-                  disabled={uploading}
-                  onClick={handleSubmitUpload}
-                >
+                <Button disabled={uploading} onClick={handleSubmitUpload}>
                   {uploading ? "Uploading..." : "Upload"}
                 </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={clearPending}
-                >
+                <Button variant="outline" onClick={clearPending}>
                   Cancel
                 </Button>
               </div>
@@ -209,34 +240,38 @@ export default function MediaPickerDialog({
           </div>
         )}
 
-        {/* Media grid */}
-        <div className="grid grid-cols-6 md:grid-cols-4 gap-6 max-h-[60vh] overflow-y-auto">
-          {loading && <p>Loading images...</p>}
+        {/* ================= MEDIA GRID ================= */}
+        <div className="w-full flex-1 overflow-hidden">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 h-full overflow-y-auto">
+            {loading && <p>Loading images...</p>}
 
-          {!loading && filteredFiles.length === 0 && (
-            <p className="text-gray-500 col-span-full">
-              No media found
-            </p>
-          )}
+            {!loading && filteredFiles.length === 0 && (
+              <p className="text-gray-500 col-span-full">
+                No media found
+              </p>
+            )}
 
-          {filteredFiles.map((url) => (
-            <div
-              key={url}
-              onClick={() => setSelected(url)}
-              className={`border rounded-lg p-3 cursor-pointer flex items-center justify-center
-                ${
-                  selected === url
-                    ? "border-[#4CAF50] ring-2 ring-[#4CAF50]"
-                    : "border-gray-200"
-                }`}
-            >
-              <img
-                src={url}
-                alt="media"
-                className="h-40 w-full object-contain"
-              />
-            </div>
-          ))}
+            {filteredFiles.map((url) => (
+              <div
+                key={url}
+                onClick={() => toggleSelect(url)}
+                className={`border rounded-xl p-3 cursor-pointer bg-white transition
+                  ${
+                    selected.includes(url)
+                      ? "border-[#4CAF50] ring-2 ring-[#4CAF50]"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+              >
+                <div className="aspect-square w-full overflow-hidden rounded-md">
+                  <img
+                    src={url}
+                    alt="media"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -18,13 +18,13 @@ export async function validateBulkProducts(
     if (!p.product_key) {
       errors.push({
         file: "products.csv",
-        row: i + 2,
+        row: i + 1,
         message: "product_key is required",
       });
     } else if (productKeySet.has(p.product_key)) {
       errors.push({
         file: "products.csv",
-        row: i + 2,
+        row: i + 1,
         message: `Duplicate product_key '${p.product_key}'`,
       });
     }
@@ -43,21 +43,45 @@ export async function validateBulkProducts(
   const categoryMap = new Map(categories?.map((c) => [c.name.toLowerCase(), c.id]));
 
   // -----------------------------
+  // 2.5 Load existing product names
+  // -----------------------------
+  const csvProductNames = products
+    .map((p) => p.name)
+    .filter(Boolean);
+
+  const { data: existingProducts } = await supabase
+    .from("products")
+    .select("name")
+    .in("name", csvProductNames);
+
+  const existingNameSet = new Set(
+    existingProducts?.map((p) => p.name.trim().toLowerCase()) ?? []
+  );
+
+  // -----------------------------
   // 3. Validate products.csv
   // -----------------------------
   products.forEach((p, i) => {
+    const normalizedName = p.name?.trim().toLowerCase();
+
     if (!p.name) {
       errors.push({
         file: "products.csv",
-        row: i + 2,
+        row: i + 1,
         message: "Product name is required",
       });
+    } else if (existingNameSet.has(normalizedName)) {
+      errors.push({
+        file: "products.csv",
+        row: i + 1,
+        message: `Product name '${p.name}' already exists`
+      })
     }
 
     if (!brandMap.has(p.brand?.toLowerCase())) {
       errors.push({
         file: "products.csv",
-        row: i + 2,
+        row: i + 1,
         message: `Brand '${p.brand}' does not exist`,
       });
     }
@@ -65,7 +89,7 @@ export async function validateBulkProducts(
     if (!categoryMap.has(p.category?.toLowerCase())) {
       errors.push({
         file: "products.csv",
-        row: i + 2,
+        row: i + 1,
         message: `Category '${p.category}' does not exist`,
       });
     }
@@ -80,28 +104,19 @@ export async function validateBulkProducts(
     if (!productKeySet.has(v.product_key)) {
       errors.push({
         file: "variants.csv",
-        row: i + 2,
+        row: i + 1,
         message: `Unknown product_key '${v.product_key}'`,
       });
       return;
     }
 
     const price = Number(v.price);
-    const quantity = Number(v.quantity);
 
     if (isNaN(price) || price < 0) {
       errors.push({
         file: "variants.csv",
-        row: i + 2,
+        row: i + 1,
         message: "Invalid price",
-      });
-    }
-
-    if (isNaN(quantity) || quantity < 0) {
-      errors.push({
-        file: "variants.csv",
-        row: i + 2,
-        message: "Invalid quantity",
       });
     }
 
@@ -119,7 +134,7 @@ export async function validateBulkProducts(
     if (!variantMap.has(p.product_key)) {
       errors.push({
         file: "variants.csv",
-        row: i + 2,
+        row: i + 1,
         message: `No variants provided for product_key '${p.product_key}'`,
       });
     }
@@ -144,7 +159,6 @@ export async function validateBulkProducts(
     variants: variantMap.get(p.product_key)!.map((v) => ({
       name: v.variant_name,
       price: Number(v.price),
-      quantity: Number(v.quantity),
     })),
   }));
 

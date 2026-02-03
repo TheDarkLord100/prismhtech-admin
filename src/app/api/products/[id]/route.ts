@@ -17,7 +17,6 @@ export async function GET(
         id,
         name,
         description,
-        total_quantity,
         brand_id,
         product_category_id,
         Brands (
@@ -37,12 +36,13 @@ export async function GET(
         ProductVariants (
           pvr_id,
           name,
-          price,
-          quantity
+          price
         )
       `)
       .eq("id", id)
       .single();
+
+      console.log("Error", error);
 
     if (error || !data) {
       return NextResponse.json(

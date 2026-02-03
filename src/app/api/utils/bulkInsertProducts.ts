@@ -40,7 +40,6 @@ export async function bulkInsertProducts(preview: BulkPreviewProduct[]) {
       product_id: productIdMap.get(p.product_key),
       name: v.name,
       price: v.price,
-      quantity: v.quantity,
     }))
   );
 
@@ -57,7 +56,7 @@ export async function bulkInsertProducts(preview: BulkPreviewProduct[]) {
   // -----------------------------
   for (const p of preview) {
     const totalQuantity = p.variants.reduce(
-      (sum, v) => sum + v.quantity,
+      (sum, v) => sum,
       0
     );
 

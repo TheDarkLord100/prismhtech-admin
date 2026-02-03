@@ -60,7 +60,6 @@ export default function ProductDetailPage() {
                             pvr_id: crypto.randomUUID(),
                             name: "",
                             price: 0,
-                            quantity: 0,
                             isNew: true,
                         },
                     ],
@@ -119,8 +118,7 @@ export default function ProductDetailPage() {
             body: JSON.stringify({
                 product_id: product.id,
                 name: v.name,
-                price: v.price,
-                quantity: v.quantity,
+                price: v.price
             }),
         });
 
@@ -243,7 +241,17 @@ export default function ProductDetailPage() {
         notify(Notification.SUCCESS, "Image order updated");
     }
 
-
+    function LockedNotice() {
+        return (
+            <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
+                <p className="font-medium">Complete product details first</p>
+                <p>
+                    Please save the basic product information. Images and variants will be
+                    unlocked after the product is created.
+                </p>
+            </div>
+        );
+    }
 
 
     return (
@@ -360,7 +368,9 @@ export default function ProductDetailPage() {
 
                 <div className="mb-8">
                     <h2 className="text-xl font-semibold mb-3">Product Images</h2>
-                    {editMode && (
+                    {isNew && <LockedNotice />}
+
+                    {!isNew && editMode && (
                         <>
                             <Button
                                 variant="outline"
@@ -406,7 +416,8 @@ export default function ProductDetailPage() {
 
                 <div>
                     <h2 className="text-xl font-semibold mb-3">Variants</h2>
-                    {editMode && (
+                    {isNew && <LockedNotice />}
+                    {!isNew && editMode && (
                         <Button
                             variant="outline"
                             className="mb-6 bg-white text-[#16463B]"
@@ -415,7 +426,7 @@ export default function ProductDetailPage() {
                                     ...product,
                                     ProductVariants: [
                                         ...product.ProductVariants,
-                                        { pvr_id: crypto.randomUUID(), name: "", price: 0, quantity: 0, isNew: true }
+                                        { pvr_id: crypto.randomUUID(), name: "", price: 0, isNew: true }
                                     ],
                                 })
                             }
@@ -423,7 +434,7 @@ export default function ProductDetailPage() {
                             + Add Variant
                         </Button>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {!isNew && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {product.ProductVariants?.length === 0 && (
                             <p className="text-gray-300">No variants</p>
                         )}
@@ -450,15 +461,6 @@ export default function ProductDetailPage() {
                                                     onChange={(e) => updateVariant(v.pvr_id, "price", e.target.value)}
                                                 />
                                             </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium mb-1">Quantity</label>
-                                                <Input
-                                                    type="number"
-                                                    value={v.quantity}
-                                                    onChange={(e) => updateVariant(v.pvr_id, "quantity", e.target.value)}
-                                                />
-                                            </div>
                                         </div>
                                         <Button
                                             onClick={() => saveVariant(v)}
@@ -480,13 +482,12 @@ export default function ProductDetailPage() {
                                     <>
                                         <h3 className="font-semibold">{v.name}</h3>
                                         <p>Price: ₹{v.price}</p>
-                                        <p>Quantity: {v.quantity}</p>
                                     </>
                                 )}
                             </Card>
 
                         ))}
-                    </div>
+                    </div>}
                 </div>
             </main>
             <MediaPickerDialog

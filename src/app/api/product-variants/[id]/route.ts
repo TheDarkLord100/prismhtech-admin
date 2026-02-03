@@ -9,12 +9,12 @@ export async function PUT(
   try {
     await authoriseAdmin(req, ["manage_products", "manage_inventory"]);
 
-    const { name, price, quantity } = await req.json();
+    const { name, price } = await req.json();
     const supabase = createAdminSupabaseClient();
     const { id } = await params;
     const { error } = await supabase
       .from("ProductVariants")
-      .update({ name, price, quantity })
+      .update({ name, price })
       .eq("pvr_id", id);
 
     if (error) throw error;

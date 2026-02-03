@@ -7,17 +7,16 @@ import { Input } from "@/components/ui/input";
 import { notify, Notification } from "@/utils/notify";
 import { useUserStore } from "@/utils/store/userStore";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-
 
 interface ProductRow {
     id: string;
@@ -36,6 +35,12 @@ export default function ProductsPage() {
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [deleteProduct, setDeleteProduct] = useState<ProductRow | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, rowsPerPage]);
 
 
     useEffect(() => {
@@ -65,6 +70,17 @@ export default function ProductsPage() {
             .toLowerCase()
             .includes(search.toLowerCase())
     );
+
+    const totalRows = filteredProducts.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+
+    const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+    const from = totalRows === 0 ? 0 : startIndex + 1;
+    const to = Math.min(endIndex, totalRows);
 
     return (
         <div className="flex h-screen bg-gradient-to-r from-[#16463B] via-[#317A45] to-[#4CAF50]">
@@ -129,7 +145,7 @@ export default function ProductsPage() {
                                 </tr>
                             )}
 
-                            {filteredProducts.map((p) => (
+                            {paginatedProducts.map((p) => (
                                 <tr
                                     key={p.id}
                                     className="border-t hover:bg-gray-50"
@@ -152,11 +168,85 @@ export default function ProductsPage() {
                                         >
                                             Delete
                                         </Button>
-                                        </td>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between mt-4 px-2 py-2 text-sm text-black">
+                        {/* Rows per page */}
+                        <div className="flex items-center gap-2">
+                            <span>Rows per page</span>
+                            <select
+                                className="rounded-md border bg-white text-black px-2 py-1"
+                                value={rowsPerPage}
+                                onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                            >
+                                {[5, 10, 20, 50].map((n) => (
+                                    <option key={n} value={n}>
+                                        {n}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Page info */}
+                        <div>
+                            Page <span className="font-medium">{currentPage}</span> of{" "}
+                            <span className="font-medium">{totalPages}</span>
+                        </div>
+
+                        <div className="text-sm">
+                            <span className="font-medium">
+                                {from}-{to}
+                            </span>{" "}
+                            of <span className="font-medium">{totalRows}</span>
+                        </div>
+
+                        {/* Navigation */}
+                        <div className="flex gap-1">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-white text-[#16463B]"
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(1)}
+                            >
+                                First
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-white text-[#16463B]"
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            >
+                                Prev
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-white text-[#16463B]"
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                            >
+                                Next
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-white text-[#16463B]"
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(totalPages)}
+                            >
+                                Last
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </main>
             {deleteProduct && (

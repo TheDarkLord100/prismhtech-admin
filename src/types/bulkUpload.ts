@@ -30,7 +30,6 @@ export interface BulkPreviewProduct {
   variants: {
     name: string;
     price: number;
-    quantity: number;
   }[];
 }
 

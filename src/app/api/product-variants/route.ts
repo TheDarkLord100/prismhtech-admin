@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     await authoriseAdmin(req, ["manage_products", "manage_inventory"]);
 
-    const { product_id, name, price, quantity } = await req.json();
+    const { product_id, name, price } = await req.json();
 
     const supabase = createAdminSupabaseClient();
 
@@ -16,7 +16,6 @@ export async function POST(req: Request) {
         product_id,
         name,
         price,
-        quantity,
       });
 
     if (error) throw error;

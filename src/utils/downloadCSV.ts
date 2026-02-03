@@ -14,6 +14,6 @@ export const PRODUCTS_TEMPLATE = `product_key,name,description,brand,category
 P001,Sample Product,Sample description,Brand Name,Category Name
 `;
 
-export const VARIANTS_TEMPLATE = `product_key,variant_name,price,quantity
-P001,Default Variant,100,10
+export const VARIANTS_TEMPLATE = `product_key,variant_name,price
+P001,Default Variant,100
 `;

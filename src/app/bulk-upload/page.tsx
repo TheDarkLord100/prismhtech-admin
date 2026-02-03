@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { notify, Notification } from "@/utils/notify";
 import { useUserStore } from "@/utils/store/userStore";
 import { downloadCSV, PRODUCTS_TEMPLATE, VARIANTS_TEMPLATE } from "@/utils/downloadCSV";
+import { useRouter } from "next/navigation";
 
 interface ValidationError {
     file: string;
@@ -16,7 +17,7 @@ interface ValidationError {
 
 export default function BulkProductUploadPage() {
     const token = useUserStore((s) => s.token);
-
+    const router = useRouter();
     const [productsFile, setProductsFile] = useState<File | null>(null);
     const [variantsFile, setVariantsFile] = useState<File | null>(null);
 
@@ -112,7 +113,17 @@ export default function BulkProductUploadPage() {
 
             <main className="flex-1 p-8 text-white overflow-y-auto">
                 {/* ================= HEADER ================= */}
-                <h1 className="text-3xl font-bold mb-6">Bulk Product Upload</h1>
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-3xl font-bold">Bulk Product Upload</h1>
+
+                    <Button
+                        variant="outline"
+                        className="text-black"
+                        onClick={() => router.push("/bulk-upload/image")}
+                    >
+                        Bulk Upload Images
+                    </Button>
+                </div>
 
                 {/* ================= INFO ================= */}
                 <Card className="p-6 mb-8 bg-white text-black space-y-3">
